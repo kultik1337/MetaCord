@@ -812,12 +812,11 @@ body {
   padding: 2px 16px 2px 72px; /* 72px left padding reserves space for avatar */
   margin-top: 0;
   border-radius: 8px;
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.15s;
 }
 
 .message-group:hover {
   background: var(--bg-mod-subtle);
-  backdrop-filter: blur(8px);
 }
 
 .message-group.has-header {
@@ -976,7 +975,7 @@ body {
 }
 
 .message-input-wrapper {
-  background: var(--bg-accent);
+  background: var(--bg-tertiary);
   border-radius: 8px;
   padding: 0 16px;
   display: flex;
@@ -997,10 +996,17 @@ body {
   background: none;
   border: none;
   font-size: 20px;
+  margin-right: 8px;
 }
 
 .message-input-wrapper .upload-btn:hover {
   color: var(--interactive-hover);
+}
+
+.message-input-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .message-input {
@@ -1009,7 +1015,7 @@ body {
   border: none;
   color: var(--text-normal);
   font-size: 16px;
-  font-family: var(--font-primary);
+  font-family: inherit;
   padding: 11px 0;
   outline: none;
   resize: none;
@@ -1019,6 +1025,31 @@ body {
 
 .message-input::placeholder {
   color: var(--input-placeholder);
+}
+
+.message-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 8px;
+}
+.input-action-icon {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--interactive-normal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, filter 0.1s;
+  padding: 0;
+  margin: 0;
+  filter: grayscale(1) brightness(1.2);
+}
+.input-action-icon:hover {
+  transform: scale(1.15);
+  filter: grayscale(0) brightness(1);
 }
 
 /* ============================================ */
@@ -2667,4 +2698,135 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+/* Message Hover Actions (Floating Toolbar) */
+.message-actions {
+  position: absolute;
+  top: -16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.15), 0 4px 4px rgba(0,0,0,0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.message-group:hover .message-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--interactive-normal);
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.message-action-btn:hover {
+  background: var(--bg-mod-hover);
+  color: var(--interactive-hover);
+}
+
+.message-action-btn.danger:hover {
+  color: var(--text-danger);
+}
+
+/* Tooltips */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::before,
+[data-tooltip]::after {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, transform 0.15s, visibility 0s 0.15s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+[data-tooltip]::before {
+  content: attr(data-tooltip);
+  background: var(--bg-floating);
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+[data-tooltip]::after {
+  content: '';
+  border: 5px solid transparent;
+}
+
+/* Position Top (default) */
+[data-tooltip]::before {
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, -4px) scale(0.95);
+  margin-bottom: 5px;
+}
+[data-tooltip]::after {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: var(--bg-floating);
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+[data-tooltip]:hover::before {
+  transform: translate(-50%, -4px) scale(1);
+}
+
+/* Position Right */
+[data-tooltip-pos="right"]::before {
+  bottom: auto;
+  left: 100%;
+  top: 50%;
+  transform: translate(4px, -50%) scale(0.95);
+  margin-bottom: 0;
+  margin-left: 5px;
+}
+[data-tooltip-pos="right"]::after {
+  bottom: auto;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top-color: transparent;
+  border-right-color: var(--bg-floating);
+}
+[data-tooltip-pos="right"]:hover::before {
+  transform: translate(4px, -50%) scale(1);
+}
+
+/* Modals Animation */
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.modal {
+  animation: popIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
 }

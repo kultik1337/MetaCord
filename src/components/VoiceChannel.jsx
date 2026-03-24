@@ -201,7 +201,7 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
       
       <div className="voice-connection-actions">
         {/* Disconnect Button */}
-        <button className="voice-action-btn hangup" onClick={onLeave} title="Отключиться">
+        <button className="voice-action-btn hangup" onClick={onLeave} data-tooltip="Отключиться">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.58.91-1.09.52-2.08 1.19-2.95 2.02-.27.27-.67.27-.95 0L.37 13.2c-.27-.27-.27-.72 0-.99C3.62 9.07 7.58 7 12 7s8.38 2.07 11.63 5.21c.27.27.27.72 0 .99l-2.55 2.55c-.27.27-.67.27-.95 0-.87-.83-1.86-1.5-2.95-2.02-.35-.17-.58-.52-.58-.91v-3.1C15.15 9.25 13.6 9 12 9z"/>
           </svg>

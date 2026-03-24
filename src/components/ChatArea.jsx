@@ -288,19 +288,19 @@ export default function ChatArea({ channel, serverId }) {
 
                 {editingId !== msg.id && (
                   <div className="message-actions">
-                    <button className="message-action-btn" onClick={() => startReply(msg)} title="Ответить">
+                    <button className="message-action-btn" data-tooltip="Ответить" onClick={() => startReply(msg)}>
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M6.598 2.076a.5.5 0 01.052.442L5.805 5.25h4.948a3.25 3.25 0 010 6.5H9.5a.75.75 0 010-1.5h1.253a1.75 1.75 0 000-3.5H5.25l-.19.001.845 2.732a.5.5 0 01-.826.477L1.44 7.232a.75.75 0 010-1.064l3.638-3.228a.5.5 0 01.774.136z"/>
                       </svg>
                     </button>
                     {isOwn && (
                       <>
-                        <button className="message-action-btn" onClick={() => startEdit(msg)} title="Изменить">
+                        <button className="message-action-btn" data-tooltip="Изменить" onClick={() => startEdit(msg)}>
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M13.293 1.293a1 1 0 011.414 1.414l-9 9a1 1 0 01-.39.242l-3 1a1 1 0 01-1.266-1.265l1-3a1 1 0 01.242-.391l9-9z"/>
                           </svg>
                         </button>
-                        <button className="message-action-btn" onClick={() => handleDelete(msg.id)} title="Удалить">
+                        <button className="message-action-btn danger" data-tooltip="Удалить" onClick={() => handleDelete(msg.id)}>
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
                             <path fillRule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1z"/>
@@ -328,28 +328,36 @@ export default function ChatArea({ channel, serverId }) {
           </div>
         )}
         <form className="message-input-wrapper" onSubmit={handleSend}>
-          <button type="button" className="upload-btn" title="Прикрепить файл">
+          <button type="button" className="upload-btn" data-tooltip="Прикрепить файл">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
             </svg>
           </button>
-          <input
-            ref={inputRef}
-            className="message-input"
-            type="text"
-            placeholder={`Написать в #${channel.name}`}
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend(e);
-              }
-              if (e.key === 'Escape' && replyTo) {
-                setReplyTo(null);
-              }
-            }}
-          />
+          <div className="message-input-content">
+            <input
+              ref={inputRef}
+              className="message-input"
+              type="text"
+              placeholder={`Написать в #${channel.name}`}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
+                if (e.key === 'Escape' && replyTo) {
+                  setReplyTo(null);
+                }
+              }}
+            />
+          </div>
+          <div className="message-input-actions">
+            <button type="button" className="input-action-icon" data-tooltip="Сделать подарок Premium">🎁</button>
+            <button type="button" className="input-action-icon" data-tooltip="Выбрать GIF">GIF</button>
+            <button type="button" className="input-action-icon" data-tooltip="Выбрать стикер">📋</button>
+            <button type="button" className="input-action-icon" data-tooltip="Выбрать эмодзи">😀</button>
+          </div>
         </form>
       </div>
     </div>
