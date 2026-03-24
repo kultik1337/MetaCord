@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import VoiceChannel from './VoiceChannel';
 
 export default function ChatArea({ channel, serverId }) {
   const { user, profile } = useAuth();
@@ -185,27 +186,11 @@ export default function ChatArea({ channel, serverId }) {
     );
   }
 
-  // Voice channel placeholder
+  // Voice channel view
   if (channel.type === 'voice') {
     return (
       <div className="chat-area">
-        <div className="chat-header">
-          <span className="channel-hash-icon">🔊</span>
-          <span className="channel-title">{channel.name}</span>
-        </div>
-        <div className="voice-channel-view">
-          <div className="voice-empty-state">
-            <div className="voice-icon-big">🎤</div>
-            <h2>Голосовой канал</h2>
-            <p>{channel.name}</p>
-            <button className="btn btn-primary voice-join-btn" onClick={() => alert('Голосовые каналы в разработке! WebRTC coming soon.')}>
-              Подключиться к голосовому каналу
-            </button>
-            <div className="voice-participants">
-              <span className="voice-participants-title">Подключённые — 0</span>
-            </div>
-          </div>
-        </div>
+        <VoiceChannel channel={channel} onLeave={() => window.location.reload()} />
       </div>
     );
   }
