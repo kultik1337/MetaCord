@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { playMessageSound } from '../lib/audio';
+import ContextMenu from './ContextMenu';
 
 export default function ChatArea({ channel, serverId }) {
   const { user, profile } = useAuth();
@@ -10,9 +12,13 @@ export default function ChatArea({ channel, serverId }) {
   const [editText, setEditText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [profiles, setProfiles] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
+  const [contextMenu, setContextMenu] = useState(null);
   const messagesEndRef = useRef(null);
   const messagesAreaRef = useRef(null);
   const inputRef = useRef(null);
+  const channelSyncRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,7 +59,20 @@ export default function ChatArea({ channel, serverId }) {
     loadMessages();
 
     const subscription = supabase
-      .channel(`messages:${channel.id}`)
+      .channel(`messages:${channel.id}`, {
+        config: { presence: { key: user?.id } }
+      })
+      .on('presence', { event: 'sync' }, () => {
+        if (!channelSyncRef.current) return;
+        const state = channelSyncRef.current.presenceState();
+        const typing = {};
+        for (const [key, presences] of Object.entries(state)) {
+          if (key !== user?.id && presences[0]?.isTyping) {
+            typing[key] = true;
+          }
+        }
+        setTypingUsers(typing);
+      })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -72,6 +91,9 @@ export default function ChatArea({ channel, serverId }) {
           }
         }
         setMessages(prev => [...prev, msg]);
+        if (msg.user_id !== user?.id) {
+          playMessageSound();
+        }
         setTimeout(scrollToBottom, 100);
       })
       .on('postgres_changes', {
@@ -89,13 +111,20 @@ export default function ChatArea({ channel, serverId }) {
         filter: `channel_id=eq.${channel.id}`
       }, (payload) => {
         setMessages(prev => prev.filter(m => m.id !== payload.old.id));
-      })
-      .subscribe();
+      });
+
+    channelSyncRef.current = subscription;
+    subscription.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await subscription.track({ isTyping: false });
+      }
+    });
 
     return () => {
       supabase.removeChannel(subscription);
+      channelSyncRef.current = null;
     };
-  }, [channel?.id]);
+  }, [channel?.id, user?.id]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -105,6 +134,8 @@ export default function ChatArea({ channel, serverId }) {
     setNewMessage('');
     const replyId = replyTo?.id || null;
     setReplyTo(null);
+    clearTimeout(typingTimeoutRef.current);
+    channelSyncRef.current?.track({ isTyping: false });
 
     await supabase.from('messages').insert({
       channel_id: channel.id,
@@ -112,6 +143,17 @@ export default function ChatArea({ channel, serverId }) {
       content: msgText,
       reply_to: replyId
     });
+  };
+
+  const handleInputChange = (e) => {
+    setNewMessage(e.target.value);
+    if (channelSyncRef.current) {
+      channelSyncRef.current.track({ isTyping: true });
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        channelSyncRef.current?.track({ isTyping: false });
+      }, 2000);
+    }
   };
 
   const handleEdit = async (msgId) => {
@@ -135,6 +177,16 @@ export default function ChatArea({ channel, serverId }) {
   const startReply = (msg) => {
     setReplyTo(msg);
     inputRef.current?.focus();
+  };
+
+  const handleContextMenu = (e, msg, isOwn) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      msg,
+      isOwn
+    });
   };
 
   const getAvatarColor = (id) => {
@@ -210,7 +262,11 @@ export default function ChatArea({ channel, serverId }) {
             const repliedAuthor = repliedMsg ? profiles[repliedMsg.user_id] : null;
 
             return (
-              <div key={msg.id} className={`message-group ${showHeader ? 'has-header' : ''}`}>
+              <div 
+                key={msg.id} 
+                className={`message-group ${showHeader ? 'has-header' : ''}`}
+                onContextMenu={(e) => handleContextMenu(e, msg, isOwn)}
+              >
                 {/* Reply reference */}
                 {repliedMsg && (
                   <div className="message-reply-ref">
@@ -340,7 +396,7 @@ export default function ChatArea({ channel, serverId }) {
               type="text"
               placeholder={`Написать в #${channel.name}`}
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -359,7 +415,32 @@ export default function ChatArea({ channel, serverId }) {
             <button type="button" className="input-action-icon" data-tooltip="Выбрать эмодзи">😀</button>
           </div>
         </form>
+        {Object.keys(typingUsers).length > 0 && (
+          <div className="typing-indicator">
+            <div className="typing-dots">
+              <span>.</span><span>.</span><span>.</span>
+            </div>
+            <span className="typing-text">Кто-то печатает...</span>
+          </div>
+        )}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            { label: 'Ответить', onClick: () => startReply(contextMenu.msg) },
+            { label: 'Копировать ID', onClick: () => navigator.clipboard.writeText(contextMenu.msg.id).catch(()=>{}) },
+            ...(contextMenu.isOwn ? [
+              { divider: true },
+              { label: 'Редактировать сообщение', onClick: () => startEdit(contextMenu.msg) },
+              { label: 'Удалить сообщение', danger: true, onClick: () => handleDelete(contextMenu.msg.id) }
+            ] : [])
+          ]}
+        />
+      )}
     </div>
   );
 }

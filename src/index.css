@@ -972,6 +972,7 @@ body {
 .message-input-container {
   padding: 0 16px 24px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .message-input-wrapper {
@@ -1050,6 +1051,77 @@ body {
 .input-action-icon:hover {
   transform: scale(1.15);
   filter: grayscale(0) brightness(1);
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  position: absolute;
+  bottom: 0px;
+  left: 0;
+  height: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-normal);
+  pointer-events: none;
+}
+.typing-dots {
+  display: flex;
+  align-items: center;
+  margin-right: 6px;
+}
+.typing-dots span {
+  animation: typingBounce 1.4s infinite ease-in-out both;
+  font-size: 20px;
+  line-height: 10px;
+  margin: 0 1px;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Context Menu */
+.context-menu {
+  background: var(--bg-floating);
+  border-radius: 4px;
+  box-shadow: var(--elevation-high);
+  padding: 6px 8px;
+  min-width: 188px;
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+}
+.context-menu-item {
+  padding: 6px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.context-menu-item:hover {
+  background-color: var(--brand-experiment);
+  color: #fff;
+}
+.context-menu-item.danger {
+  color: var(--status-dnd);
+}
+.context-menu-item.danger:hover {
+  background-color: var(--status-dnd);
+  color: #fff;
+}
+.context-menu-divider {
+  height: 1px;
+  background-color: var(--modifier-accent);
+  margin: 4px 6px;
 }
 
 /* ============================================ */

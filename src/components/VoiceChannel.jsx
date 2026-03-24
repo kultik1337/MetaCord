@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { playJoinSound, playLeaveSound } from '../lib/audio';
 
 export default function VoiceChannel({ channel, onLeave, onParticipantsChange }) {
   const { user } = useAuth();
@@ -92,6 +93,7 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
 
         rtChannel.subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
+            playJoinSound();
             await rtChannel.track({
               user_id: user.id,
               isMuted: isMuted,
@@ -159,6 +161,7 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
 
     return () => {
       mounted = false;
+      playLeaveSound();
       if (onParticipantsChange) onParticipantsChange(channel.id, {});
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());

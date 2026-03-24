@@ -40,6 +40,8 @@ function MainApp() {
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
   const [voiceParticipants, setVoiceParticipants] = useState({});
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeaf, setIsDeaf] = useState(false);
   const [isDMView, setIsDMView] = useState(false);
   const [dmConversations, setDmConversations] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
@@ -305,10 +307,17 @@ function MainApp() {
         {/* Voice Connection Panel stays globally visible in Sidebar container */}
         <VoiceChannel
           channel={activeVoiceChannel}
+          isMuted={isMuted}
+          isDeaf={isDeaf}
           onParticipantsChange={(channelId, parts) => setVoiceParticipants(prev => ({ ...prev, [channelId]: parts }))}
           onLeave={() => setActiveVoiceChannel(null)}
         />
-        <UserBar />
+        <UserBar 
+          isMuted={isMuted}
+          isDeaf={isDeaf}
+          onToggleMute={() => setIsMuted(v => !v)}
+          onToggleDeaf={() => setIsDeaf(v => !v)}
+        />
       </div>
 
       <div className="chat-content-container" style={{ flex: 1, display: 'flex' }}>
