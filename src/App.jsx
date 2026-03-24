@@ -11,6 +11,7 @@ import ChatArea from './components/ChatArea';
 import MemberList from './components/MemberList';
 import DMSidebar from './components/DMSidebar';
 import DMChatArea from './components/DMChatArea';
+import FriendsView from './components/FriendsView';
 import { CreateServerModal, JoinServerModal, CreateChannelModal, InviteModal } from './components/Modals';
 import './index.css';
 
@@ -39,6 +40,7 @@ function MainApp() {
   const [dmConversations, setDmConversations] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [showMemberList, setShowMemberList] = useState(true);
+  const [showFriends, setShowFriends] = useState(true);
   
   // Modals
   const [showCreateServer, setShowCreateServer] = useState(false);
@@ -139,6 +141,8 @@ function MainApp() {
     setIsDMView(true);
     setActiveServerId(null);
     setActiveChannelId(null);
+    setShowFriends(true);
+    setActiveConvId(null);
   };
 
   const handleCreateServer = async (name) => {
@@ -275,10 +279,16 @@ function MainApp() {
           <DMSidebar
             conversations={dmConversations}
             activeConvId={activeConvId}
-            onSelectConversation={setActiveConvId}
-            onStartDM={handleStartDM}
+            onSelectConversation={(id) => { setActiveConvId(id); setShowFriends(false); }}
+            onStartDM={(id) => { handleStartDM(id); setShowFriends(false); }}
+            onShowFriends={() => { setShowFriends(true); setActiveConvId(null); }}
+            showFriends={showFriends}
           />
-          <DMChatArea conversationId={activeConvId} />
+          {showFriends ? (
+            <FriendsView onStartDM={(id) => { handleStartDM(id); setShowFriends(false); }} />
+          ) : (
+            <DMChatArea conversationId={activeConvId} />
+          )}
         </>
       ) : (
         <>
@@ -288,6 +298,7 @@ function MainApp() {
             activeChannelId={activeChannelId}
             onSelectChannel={setActiveChannelId}
             onCreateChannel={() => setShowCreateChannel(true)}
+            onInvite={() => setShowInvite(true)}
           />
           <ChatArea
             channel={activeChannel}

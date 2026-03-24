@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import UserBar from './UserBar';
 
-export default function ChannelSidebar({ server, channels, activeChannelId, onSelectChannel, onCreateChannel }) {
+export default function ChannelSidebar({ server, channels, activeChannelId, onSelectChannel, onCreateChannel, onInvite }) {
   return (
     <div className="channel-sidebar">
       <div className="server-header">
         <h3>{server?.name || 'Сервер'}</h3>
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="var(--text-normal)" style={{ flexShrink: 0 }}>
-          <path d="M5.293 7.293a1 1 0 011.414 0L9 9.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="var(--text-normal)" style={{ flexShrink: 0, cursor: 'pointer' }} onClick={onInvite} title="Пригласить людей">
+          <path d="M14 8h-2V6a1 1 0 00-2 0v2H8a1 1 0 000 2h2v2a1 1 0 002 0v-2h2a1 1 0 000-2zM6 10a4 4 0 110-8 4 4 0 010 8zm0 2c-2.67 0-8 1.34-8 4v1a1 1 0 001 1h14a1 1 0 001-1v-1c0-2.66-5.33-4-8-4z"/>
         </svg>
       </div>
 

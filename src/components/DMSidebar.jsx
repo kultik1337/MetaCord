@@ -3,13 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import UserBar from './UserBar';
 
-export default function DMSidebar({ conversations, activeConvId, onSelectConversation, onStartDM }) {
+export default function DMSidebar({ conversations, activeConvId, onSelectConversation, onStartDM, onShowFriends, showFriends }) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState({});
-  const [allUsers, setAllUsers] = useState([]);
-  const [showUsers, setShowUsers] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  // Load conversation member profiles
   useEffect(() => {
     const loadProfiles = async () => {
       if (!conversations?.length) return;
@@ -32,15 +30,28 @@ export default function DMSidebar({ conversations, activeConvId, onSelectConvers
     loadProfiles();
   }, [conversations, user?.id]);
 
-  const loadAllUsers = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .neq('id', user.id)
-      .limit(50);
-    if (data) setAllUsers(data);
-    setShowUsers(true);
-  };
+  // Load pending friend requests count
+  useEffect(() => {
+    if (!user) return;
+    const loadPending = async () => {
+      const { count } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_id', user.id)
+        .eq('status', 'pending');
+      setPendingCount(count || 0);
+    };
+    loadPending();
+
+    const sub = supabase
+      .channel('pending-count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => {
+        loadPending();
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(sub);
+  }, [user?.id]);
 
   const getAvatarColor = (id) => {
     const colors = ['#5865f2', '#57f287', '#fee75c', '#eb459e', '#ed4245', '#f47b67', '#e78fd7'];
@@ -59,17 +70,22 @@ export default function DMSidebar({ conversations, activeConvId, onSelectConvers
       </div>
 
       <div className="dm-find">
-        <input className="dm-find-input" placeholder="Найти или начать беседу" readOnly onClick={loadAllUsers} />
+        <input className="dm-find-input" placeholder="Найти или начать беседу" readOnly />
       </div>
 
       <div className="dm-list">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px' }}>
-          <span className="dm-header-title">Личные сообщения</span>
-          <span
-            style={{ color: 'var(--channel-icon)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
-            onClick={loadAllUsers}
-            title="Новое сообщение"
-          >+</span>
+        {/* Friends button */}
+        <div
+          className={`dm-friends-btn ${showFriends ? 'active' : ''}`}
+          onClick={onShowFriends}
+        >
+          <span className="dm-friends-icon">👥</span>
+          <span>Друзья</span>
+          {pendingCount > 0 && <span className="dm-friends-badge">{pendingCount}</span>}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px 4px' }}>
+          <span className="dm-header-title">ЛИЧНЫЕ СООБЩЕНИЯ</span>
         </div>
 
         {conversations.map(conv => {
@@ -94,47 +110,6 @@ export default function DMSidebar({ conversations, activeConvId, onSelectConvers
           );
         })}
       </div>
-
-      {/* Show all users panel */}
-      {showUsers && (
-        <div className="modal-overlay" onClick={() => setShowUsers(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Новое сообщение</h2>
-              <p>Выбери пользователя для отправки сообщения</p>
-            </div>
-            <div className="modal-body" style={{ maxHeight: 300, overflowY: 'auto' }}>
-              {allUsers.map(u => (
-                <div
-                  key={u.id}
-                  className="member-item"
-                  onClick={() => {
-                    onStartDM(u.id);
-                    setShowUsers(false);
-                  }}
-                >
-                  <div className="member-avatar" style={{ backgroundColor: getAvatarColor(u.id) }}>
-                    {u.avatar_url ? (
-                      <img src={u.avatar_url} alt="" />
-                    ) : (
-                      getInitial(u.username)
-                    )}
-                  </div>
-                  <span className="member-name">{u.display_name || u.username}</span>
-                </div>
-              ))}
-              {allUsers.length === 0 && (
-                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 20 }}>
-                  Пока нет других пользователей
-                </p>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowUsers(false)}>Отмена</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <UserBar />
     </div>
