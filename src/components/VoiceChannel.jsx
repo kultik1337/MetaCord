@@ -3,11 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { playJoinSound, playLeaveSound } from '../lib/audio';
 
-export default function VoiceChannel({ channel, onLeave, onParticipantsChange }) {
+export default function VoiceChannel({ channel, onLeave, onParticipantsChange, isMuted, isDeaf }) {
   const { user } = useAuth();
-  const [participants, setParticipants] = useState({});
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeaf, setIsDeaf] = useState(false);
   const [rtcStatus, setRtcStatus] = useState('Подключение...');
   
   const localStreamRef = useRef(null);
@@ -48,7 +45,6 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
             for (const key in state) {
               parts[key] = state[key][0]; // Take first presence object for the user
             }
-            setParticipants(parts);
             if (onParticipantsChange) onParticipantsChange(channel.id, parts);
           })
           .on('presence', { event: 'join' }, ({ key }) => {
@@ -74,20 +70,29 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
               createPeerConnection(from, false);
             }
             const pc = peersRef.current[from];
+            if (!pc || pc.signalingState === 'closed') return;
 
-            if (signal.type === 'offer') {
-              await pc.setRemoteDescription(new RTCSessionDescription(signal));
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              rtChannel.send({
-                type: 'broadcast',
-                event: 'signal',
-                payload: { to: from, from: user.id, signal: pc.localDescription }
-              });
-            } else if (signal.type === 'answer') {
-              await pc.setRemoteDescription(new RTCSessionDescription(signal));
-            } else if (signal.candidate) {
-              await pc.addIceCandidate(new RTCIceCandidate(signal));
+            try {
+              if (signal.type === 'offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                if (pc.signalingState === 'closed') return;
+                const answer = await pc.createAnswer();
+                if (pc.signalingState === 'closed') return;
+                await pc.setLocalDescription(answer);
+                rtChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: { to: from, from: user.id, signal: pc.localDescription }
+                });
+              } else if (signal.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(signal));
+              } else if (signal.candidate) {
+                if (pc.remoteDescription && pc.signalingState !== 'closed') {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal));
+                }
+              }
+            } catch (err) {
+              console.warn('WebRTC signaling error (expected on disconnect):', err);
             }
           });
 
@@ -183,10 +188,11 @@ export default function VoiceChannel({ channel, onLeave, onParticipantsChange })
         track.enabled = !isMuted;
       });
     }
-  }, [isMuted, isDeaf, user.id]);
-
-  const toggleMute = () => setIsMuted(!isMuted);
-  const toggleDeaf = () => setIsDeaf(!isDeaf);
+    // Handle Deafen (mute remote speakers)
+    Object.values(audioRefs.current).forEach(audio => {
+      audio.muted = isDeaf;
+    });
+  }, [isMuted, isDeaf, user?.id]);
 
   if (!channel) return null;
 
