@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import VoiceChannel from './VoiceChannel';
 
 export default function ChatArea({ channel, serverId }) {
   const { user, profile } = useAuth();
@@ -182,15 +181,6 @@ export default function ChatArea({ channel, serverId }) {
           <h3>Выбери канал</h3>
           <p>Выбери текстовый канал из списка слева, чтобы начать общение</p>
         </div>
-      </div>
-    );
-  }
-
-  // Voice channel view
-  if (channel.type === 'voice') {
-    return (
-      <div className="chat-area">
-        <VoiceChannel channel={channel} onLeave={() => window.location.reload()} />
       </div>
     );
   }

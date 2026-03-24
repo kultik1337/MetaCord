@@ -12,6 +12,8 @@ import MemberList from './components/MemberList';
 import DMSidebar from './components/DMSidebar';
 import DMChatArea from './components/DMChatArea';
 import FriendsView from './components/FriendsView';
+import UserBar from './components/UserBar';
+import VoiceChannel from './components/VoiceChannel';
 import { CreateServerModal, JoinServerModal, CreateChannelModal, InviteModal } from './components/Modals';
 import './index.css';
 
@@ -36,6 +38,8 @@ function MainApp() {
   const [activeServerId, setActiveServerId] = useState(null);
   const [channels, setChannels] = useState([]);
   const [activeChannelId, setActiveChannelId] = useState(null);
+  const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
+  const [voiceParticipants, setVoiceParticipants] = useState({});
   const [isDMView, setIsDMView] = useState(false);
   const [dmConversations, setDmConversations] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
@@ -95,7 +99,8 @@ function MainApp() {
       if (data) {
         setChannels(data);
         if (data.length > 0) {
-          setActiveChannelId(data[0].id);
+          const firstText = data.find(c => c.type === 'text');
+          setActiveChannelId(firstText ? firstText.id : null);
         } else {
           setActiveChannelId(null);
         }
@@ -143,6 +148,16 @@ function MainApp() {
     setActiveChannelId(null);
     setShowFriends(true);
     setActiveConvId(null);
+  };
+
+  const handleSelectChannel = (channelId) => {
+    const ch = channels.find(c => c.id === channelId);
+    if (!ch) return;
+    if (ch.type === 'voice') {
+      setActiveVoiceChannel(ch); // Does not replace text channel
+    } else {
+      setActiveChannelId(channelId);
+    }
   };
 
   const handleCreateServer = async (name) => {
@@ -264,8 +279,8 @@ function MainApp() {
         onJoinServer={() => setShowJoinServer(true)}
       />
 
-      {isDMView ? (
-        <>
+      <div className="sidebar-container">
+        {isDMView ? (
           <DMSidebar
             conversations={dmConversations}
             activeConvId={activeConvId}
@@ -274,31 +289,44 @@ function MainApp() {
             onShowFriends={() => { setShowFriends(true); setActiveConvId(null); }}
             showFriends={showFriends}
           />
-          {showFriends ? (
-            <FriendsView onStartDM={(id) => { handleStartDM(id); setShowFriends(false); }} />
-          ) : (
-            <DMChatArea conversationId={activeConvId} />
-          )}
-        </>
-      ) : (
-        <>
+        ) : (
           <ChannelSidebar
             server={activeServer}
             channels={channels}
             activeChannelId={activeChannelId}
-            onSelectChannel={setActiveChannelId}
+            activeVoiceChannel={activeVoiceChannel}
+            voiceParticipants={voiceParticipants}
+            onSelectChannel={handleSelectChannel}
             onCreateChannel={() => setShowCreateChannel(true)}
             onInvite={() => setShowInvite(true)}
           />
-          <ChatArea
-            channel={activeChannel}
-            serverId={activeServerId}
-          />
-          {showMemberList && activeServerId && (
-            <MemberList serverId={activeServerId} />
-          )}
-        </>
-      )}
+        )}
+        
+        {/* Voice Connection Panel stays globally visible in Sidebar container */}
+        <VoiceChannel
+          channel={activeVoiceChannel}
+          onParticipantsChange={(channelId, parts) => setVoiceParticipants(prev => ({ ...prev, [channelId]: parts }))}
+          onLeave={() => setActiveVoiceChannel(null)}
+        />
+        <UserBar />
+      </div>
+
+      <div className="chat-content-container" style={{ flex: 1, display: 'flex' }}>
+        {isDMView ? (
+          showFriends ? (
+            <FriendsView onStartDM={(id) => { handleStartDM(id); setShowFriends(false); }} />
+          ) : (
+            <DMChatArea conversationId={activeConvId} />
+          )
+        ) : (
+          <>
+            <ChatArea channel={activeChannel} serverId={activeServerId} />
+            {showMemberList && activeServerId && (
+              <MemberList serverId={activeServerId} />
+            )}
+          </>
+        )}
+      </div>
 
       {showCreateServer && (
         <CreateServerModal

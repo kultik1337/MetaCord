@@ -111,7 +111,6 @@ export default function DMSidebar({ conversations, activeConvId, onSelectConvers
         })}
       </div>
 
-      <UserBar />
     </div>
   );
 }

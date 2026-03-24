@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import UserBar from './UserBar';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function ChannelSidebar({ server, channels, activeChannelId, onSelectChannel, onCreateChannel, onInvite }) {
+export default function ChannelSidebar({ server, channels, activeChannelId, activeVoiceChannel, voiceParticipants, onSelectChannel, onCreateChannel, onInvite }) {
   const { user } = useAuth();
   const [showCreateVoice, setShowCreateVoice] = useState(false);
   const [voiceName, setVoiceName] = useState('');
@@ -79,16 +78,34 @@ export default function ChannelSidebar({ server, channels, activeChannelId, onSe
               </svg>
             </span>
           </div>
-          {voiceChannels.map(channel => (
-            <div
-              key={channel.id}
-              className={`channel-item ${activeChannelId === channel.id ? 'active' : ''}`}
-              onClick={() => onSelectChannel(channel.id)}
-            >
-              <span className="channel-hash">🔊</span>
-              <span className="channel-name">{channel.name}</span>
-            </div>
-          ))}
+          {voiceChannels.map(channel => {
+            const isActiveVoice = activeVoiceChannel?.id === channel.id;
+            const participants = voiceParticipants[channel.id] || {};
+            return (
+              <div key={channel.id}>
+                <div
+                  className={`channel-item ${activeChannelId === channel.id ? 'active' : ''} ${isActiveVoice ? 'connected' : ''}`}
+                  onClick={() => onSelectChannel(channel.id)}
+                >
+                  <span className="channel-hash">🔊</span>
+                  <span className="channel-name">{channel.name}</span>
+                </div>
+                {isActiveVoice && Object.keys(participants).length > 0 && (
+                  <div className="voice-users-list">
+                    {Object.entries(participants).map(([uid, state]) => (
+                      <div key={uid} className="voice-user-item">
+                        <div className="voice-user-avatar" style={{ backgroundColor: '#5865f2' }}>
+                          {uid.substring(0, 2).toUpperCase()}
+                          {state.isMuted && <span className="voice-user-mute">🔇</span>}
+                        </div>
+                        <span className="voice-user-name">{uid === user?.id ? 'Ты' : 'Пользователь ' + uid.substring(0, 4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {voiceChannels.length === 0 && !showCreateVoice && (
             <div className="channel-item" style={{ opacity: 0.4, cursor: 'default', fontSize: 12 }}>
               Нет голосовых каналов
@@ -128,8 +145,6 @@ export default function ChannelSidebar({ server, channels, activeChannelId, onSe
           </div>
         </div>
       )}
-
-      <UserBar />
     </div>
   );
 }
