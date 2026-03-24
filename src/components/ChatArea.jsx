@@ -8,6 +8,7 @@ export default function ChatArea({ channel, serverId }) {
   const [newMessage, setNewMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
   const [profiles, setProfiles] = useState({});
   const messagesEndRef = useRef(null);
   const messagesAreaRef = useRef(null);
@@ -21,6 +22,7 @@ export default function ChatArea({ channel, serverId }) {
   useEffect(() => {
     if (!channel) return;
     setMessages([]);
+    setReplyTo(null);
 
     const loadMessages = async () => {
       const { data } = await supabase
@@ -32,7 +34,6 @@ export default function ChatArea({ channel, serverId }) {
       
       if (data) {
         setMessages(data);
-        // Load profiles for all message authors
         const userIds = [...new Set(data.map(m => m.user_id))];
         if (userIds.length > 0) {
           const { data: profs } = await supabase
@@ -51,7 +52,6 @@ export default function ChatArea({ channel, serverId }) {
 
     loadMessages();
 
-    // Subscribe to new messages
     const subscription = supabase
       .channel(`messages:${channel.id}`)
       .on('postgres_changes', {
@@ -61,7 +61,6 @@ export default function ChatArea({ channel, serverId }) {
         filter: `channel_id=eq.${channel.id}`
       }, async (payload) => {
         const msg = payload.new;
-        // Load profile if not cached
         if (!profiles[msg.user_id]) {
           const { data: prof } = await supabase
             .from('profiles')
@@ -104,11 +103,14 @@ export default function ChatArea({ channel, serverId }) {
 
     const msgText = newMessage.trim();
     setNewMessage('');
+    const replyId = replyTo?.id || null;
+    setReplyTo(null);
 
     await supabase.from('messages').insert({
       channel_id: channel.id,
       user_id: user.id,
-      content: msgText
+      content: msgText,
+      reply_to: replyId
     });
   };
 
@@ -128,6 +130,11 @@ export default function ChatArea({ channel, serverId }) {
   const startEdit = (msg) => {
     setEditingId(msg.id);
     setEditText(msg.content);
+  };
+
+  const startReply = (msg) => {
+    setReplyTo(msg);
+    inputRef.current?.focus();
   };
 
   const getAvatarColor = (id) => {
@@ -156,10 +163,16 @@ export default function ChatArea({ channel, serverId }) {
     const prev = messages[idx - 1];
     if (prev.user_id !== msg.user_id) return true;
     const diff = new Date(msg.created_at) - new Date(prev.created_at);
-    return diff > 7 * 60 * 1000; // 7 minutes
+    return diff > 7 * 60 * 1000;
   };
 
   const getInitial = (name) => name ? name[0].toUpperCase() : '?';
+
+  // Find the replied-to message
+  const getRepliedMessage = (replyId) => {
+    if (!replyId) return null;
+    return messages.find(m => m.id === replyId);
+  };
 
   if (!channel) {
     return (
@@ -167,6 +180,31 @@ export default function ChatArea({ channel, serverId }) {
         <div className="empty-state">
           <h3>Выбери канал</h3>
           <p>Выбери текстовый канал из списка слева, чтобы начать общение</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Voice channel placeholder
+  if (channel.type === 'voice') {
+    return (
+      <div className="chat-area">
+        <div className="chat-header">
+          <span className="channel-hash-icon">🔊</span>
+          <span className="channel-title">{channel.name}</span>
+        </div>
+        <div className="voice-channel-view">
+          <div className="voice-empty-state">
+            <div className="voice-icon-big">🎤</div>
+            <h2>Голосовой канал</h2>
+            <p>{channel.name}</p>
+            <button className="btn btn-primary voice-join-btn" onClick={() => alert('Голосовые каналы в разработке! WebRTC coming soon.')}>
+              Подключиться к голосовому каналу
+            </button>
+            <div className="voice-participants">
+              <span className="voice-participants-title">Подключённые — 0</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -182,7 +220,6 @@ export default function ChatArea({ channel, serverId }) {
 
       <div className="messages-area" ref={messagesAreaRef}>
         <div className="messages-container">
-          {/* Channel welcome */}
           <div className="channel-welcome">
             <div className="welcome-hash">#</div>
             <h1>Добро пожаловать в #{channel.name}!</h1>
@@ -194,9 +231,27 @@ export default function ChatArea({ channel, serverId }) {
             const author = profiles[msg.user_id];
             const authorName = author?.display_name || author?.username || 'Unknown';
             const isOwn = msg.user_id === user?.id;
+            const repliedMsg = getRepliedMessage(msg.reply_to);
+            const repliedAuthor = repliedMsg ? profiles[repliedMsg.user_id] : null;
 
             return (
               <div key={msg.id} className={`message-group ${showHeader ? 'has-header' : ''}`}>
+                {/* Reply reference */}
+                {repliedMsg && (
+                  <div className="message-reply-ref">
+                    <div className="reply-line" />
+                    <div className="reply-avatar-small" style={{ backgroundColor: getAvatarColor(repliedMsg.user_id) }}>
+                      {getInitial(repliedAuthor?.username)}
+                    </div>
+                    <span className="reply-author" style={{ color: getAvatarColor(repliedMsg.user_id) }}>
+                      {repliedAuthor?.display_name || repliedAuthor?.username || 'Unknown'}
+                    </span>
+                    <span className="reply-content-preview">
+                      {repliedMsg.content.length > 60 ? repliedMsg.content.slice(0, 60) + '...' : repliedMsg.content}
+                    </span>
+                  </div>
+                )}
+
                 {showHeader ? (
                   <div className="message-avatar" style={{ backgroundColor: getAvatarColor(msg.user_id) }}>
                     {author?.avatar_url ? (
@@ -256,19 +311,28 @@ export default function ChatArea({ channel, serverId }) {
                   )}
                 </div>
 
-                {isOwn && editingId !== msg.id && (
+                {editingId !== msg.id && (
                   <div className="message-actions">
-                    <button className="message-action-btn" onClick={() => startEdit(msg)} title="Изменить">
+                    <button className="message-action-btn" onClick={() => startReply(msg)} title="Ответить">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M13.293 1.293a1 1 0 011.414 1.414l-9 9a1 1 0 01-.39.242l-3 1a1 1 0 01-1.266-1.265l1-3a1 1 0 01.242-.391l9-9z"/>
+                        <path d="M6.598 2.076a.5.5 0 01.052.442L5.805 5.25h4.948a3.25 3.25 0 010 6.5H9.5a.75.75 0 010-1.5h1.253a1.75 1.75 0 000-3.5H5.25l-.19.001.845 2.732a.5.5 0 01-.826.477L1.44 7.232a.75.75 0 010-1.064l3.638-3.228a.5.5 0 01.774.136z"/>
                       </svg>
                     </button>
-                    <button className="message-action-btn" onClick={() => handleDelete(msg.id)} title="Удалить">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
-                        <path fillRule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1z"/>
-                      </svg>
-                    </button>
+                    {isOwn && (
+                      <>
+                        <button className="message-action-btn" onClick={() => startEdit(msg)} title="Изменить">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M13.293 1.293a1 1 0 011.414 1.414l-9 9a1 1 0 01-.39.242l-3 1a1 1 0 01-1.266-1.265l1-3a1 1 0 01.242-.391l9-9z"/>
+                          </svg>
+                        </button>
+                        <button className="message-action-btn" onClick={() => handleDelete(msg.id)} title="Удалить">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M5.5 5.5A.5.5 0 016 6v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm2.5 0a.5.5 0 01.5.5v6a.5.5 0 01-1 0V6a.5.5 0 01.5-.5zm3 .5a.5.5 0 00-1 0v6a.5.5 0 001 0V6z"/>
+                            <path fillRule="evenodd" d="M14.5 3a1 1 0 01-1 1H13v9a2 2 0 01-2 2H5a2 2 0 01-2-2V4h-.5a1 1 0 01-1-1V2a1 1 0 011-1H6a1 1 0 011-1h2a1 1 0 011 1h3.5a1 1 0 011 1v1z"/>
+                          </svg>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -279,6 +343,15 @@ export default function ChatArea({ channel, serverId }) {
       </div>
 
       <div className="message-input-container">
+        {/* Reply bar */}
+        {replyTo && (
+          <div className="reply-bar">
+            <span className="reply-bar-text">
+              Ответ на сообщение <strong>{profiles[replyTo.user_id]?.username || 'Unknown'}</strong>
+            </span>
+            <button className="reply-bar-close" onClick={() => setReplyTo(null)}>✕</button>
+          </div>
+        )}
         <form className="message-input-wrapper" onSubmit={handleSend}>
           <button type="button" className="upload-btn" title="Прикрепить файл">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -296,6 +369,9 @@ export default function ChatArea({ channel, serverId }) {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend(e);
+              }
+              if (e.key === 'Escape' && replyTo) {
+                setReplyTo(null);
               }
             }}
           />

@@ -222,41 +222,31 @@ function MainApp() {
   };
 
   const handleStartDM = async (otherUserId) => {
+    // Use RPC to atomically create DM (avoids RLS race condition)
+    const { data: convId, error } = await supabase.rpc('create_dm', { other_user_id: otherUserId });
+    
+    if (error) {
+      console.error('Error creating DM:', error);
+      return;
+    }
+
+    // Reload DM conversations
     const { data: myMemberships } = await supabase
       .from('dm_members')
       .select('conversation_id')
       .eq('user_id', user.id);
     
-    if (myMemberships) {
-      for (const m of myMemberships) {
-        const { data: otherMember } = await supabase
-          .from('dm_members')
-          .select('id')
-          .eq('conversation_id', m.conversation_id)
-          .eq('user_id', otherUserId)
-          .single();
-        
-        if (otherMember) {
-          setActiveConvId(m.conversation_id);
-          return;
-        }
-      }
+    if (myMemberships?.length) {
+      const convIds = myMemberships.map(m => m.conversation_id);
+      const { data: convs } = await supabase
+        .from('direct_conversations')
+        .select('*')
+        .in('id', convIds)
+        .order('created_at', { ascending: false });
+      if (convs) setDmConversations(convs);
     }
 
-    const { data: conv } = await supabase
-      .from('direct_conversations')
-      .insert({})
-      .select()
-      .single();
-    
-    if (conv) {
-      await supabase.from('dm_members').insert([
-        { conversation_id: conv.id, user_id: user.id },
-        { conversation_id: conv.id, user_id: otherUserId }
-      ]);
-      setDmConversations(prev => [conv, ...prev]);
-      setActiveConvId(conv.id);
-    }
+    setActiveConvId(convId);
   };
 
   const activeServer = servers.find(s => s.id === activeServerId);

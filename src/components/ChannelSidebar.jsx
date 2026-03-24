@@ -1,7 +1,36 @@
 import { useState } from 'react';
 import UserBar from './UserBar';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function ChannelSidebar({ server, channels, activeChannelId, onSelectChannel, onCreateChannel, onInvite }) {
+  const { user } = useAuth();
+  const [showCreateVoice, setShowCreateVoice] = useState(false);
+  const [voiceName, setVoiceName] = useState('');
+
+  const handleCreateVoice = async () => {
+    if (!voiceName.trim() || !server) return;
+    const { data } = await supabase
+      .from('channels')
+      .insert({
+        server_id: server.id,
+        name: voiceName.trim(),
+        type: 'voice',
+        position: channels.length
+      })
+      .select()
+      .single();
+    if (data) {
+      setVoiceName('');
+      setShowCreateVoice(false);
+      // Channels will be refreshed by parent
+      window.location.reload();
+    }
+  };
+
+  const textChannels = channels.filter(c => c.type === 'text');
+  const voiceChannels = channels.filter(c => c.type === 'voice');
+
   return (
     <div className="channel-sidebar">
       <div className="server-header">
@@ -12,6 +41,7 @@ export default function ChannelSidebar({ server, channels, activeChannelId, onSe
       </div>
 
       <div className="channel-list">
+        {/* Text channels */}
         <div className="channel-category">
           <div className="category-header">
             <svg viewBox="0 0 12 12" fill="currentColor">
@@ -24,7 +54,7 @@ export default function ChannelSidebar({ server, channels, activeChannelId, onSe
               </svg>
             </span>
           </div>
-          {channels.filter(c => c.type === 'text').map(channel => (
+          {textChannels.map(channel => (
             <div
               key={channel.id}
               className={`channel-item ${activeChannelId === channel.id ? 'active' : ''}`}
@@ -35,7 +65,69 @@ export default function ChannelSidebar({ server, channels, activeChannelId, onSe
             </div>
           ))}
         </div>
+
+        {/* Voice channels */}
+        <div className="channel-category">
+          <div className="category-header">
+            <svg viewBox="0 0 12 12" fill="currentColor">
+              <path d="M2 4.5L6 8.5L10 4.5H2Z"/>
+            </svg>
+            <span>Голосовые каналы</span>
+            <span className="add-channel-btn" onClick={(e) => { e.stopPropagation(); setShowCreateVoice(true); }} title="Создать голосовой канал">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                <path d="M15 9.75H9.75V15H8.25V9.75H3V8.25H8.25V3H9.75V8.25H15V9.75Z"/>
+              </svg>
+            </span>
+          </div>
+          {voiceChannels.map(channel => (
+            <div
+              key={channel.id}
+              className={`channel-item ${activeChannelId === channel.id ? 'active' : ''}`}
+              onClick={() => onSelectChannel(channel.id)}
+            >
+              <span className="channel-hash">🔊</span>
+              <span className="channel-name">{channel.name}</span>
+            </div>
+          ))}
+          {voiceChannels.length === 0 && !showCreateVoice && (
+            <div className="channel-item" style={{ opacity: 0.4, cursor: 'default', fontSize: 12 }}>
+              Нет голосовых каналов
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Create voice channel inline */}
+      {showCreateVoice && (
+        <div className="modal-overlay" onClick={() => setShowCreateVoice(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Голосовой канал</h2>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Имя канала <span className="required">*</span></label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--input-background)', borderRadius: 4, padding: '0 12px' }}>
+                  <span style={{ fontSize: 18 }}>🔊</span>
+                  <input
+                    type="text"
+                    value={voiceName}
+                    onChange={e => setVoiceName(e.target.value)}
+                    placeholder="голосовой"
+                    onKeyDown={e => e.key === 'Enter' && handleCreateVoice()}
+                    autoFocus
+                    style={{ background: 'transparent', border: 'none' }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowCreateVoice(false)}>Отмена</button>
+              <button className="btn btn-primary" onClick={handleCreateVoice} disabled={!voiceName.trim()}>Создать</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UserBar />
     </div>
