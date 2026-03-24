@@ -1,13 +1,14 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   entry: './src/main.jsx',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, '.'),
     filename: 'bundle.js',
     publicPath: '/',
-    clean: true
+    clean: false // VERY IMPORTANT: Do not clean the root directory!
   },
   module: {
     rules: [
@@ -39,8 +40,19 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './index.html',
+      template: './public/index.html',
       title: 'MetaCord'
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        { 
+          from: 'public', 
+          to: '.', 
+          globOptions: {
+            ignore: ['**/index.html'] // Don't copy index.html since HtmlWebpackPlugin handles it
+          }
+        }
+      ]
     })
   ],
   devServer: {
